@@ -1,0 +1,10 @@
+#!/usr/bin/perl -w
+
+use strict;
+use warnings;
+use Pg::RollDump;
+Pg::RollDump->go;
+
+=head1 Name
+
+pg_rolldump - Time-based rolling PostgreSQL cluster backups

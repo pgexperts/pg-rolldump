@@ -78,6 +78,8 @@ sub _getopts {
             . join "\n    ", map { "--keep-$_" } qw(hours days weeks months years)
     ) unless grep { $opts{"keep_$_"} } qw(hours days weeks months years);
 
+    $opts{pg_dump_options} = \@ARGV;
+
     return \%opts;
 }
 

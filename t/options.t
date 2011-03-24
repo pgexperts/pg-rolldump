@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-use Test::More tests => 32;
+use Test::More tests => 33;
 #use Test::More 'no_plan';
 use Pg::RollDump;
 use Test::MockModule;
@@ -16,6 +16,7 @@ my %defaults = (
     keep_years  => undef,
     man         => undef,
     pg_dump     => 'pg_dump',
+    pg_dump_options => [],
     verbose     => 0,
     version     => undef,
 );
@@ -173,4 +174,15 @@ HELP: {
     eval { Pg::RollDump->_getopts };
     is_deeply \@params, ['-sections' => '.+', '-exitval' => 0],
         'Should get proper exit for -M';
+}
+
+PGDUMP: {
+    local $defaults{keep_hours} = 2;
+    local $defaults{directory} = 'whatever';
+
+    local @ARGV = qw(--dir whatever -h 2 -- -U postgres);
+    is_deeply +Pg::RollDump->_getopts, {
+        %defaults,
+        pg_dump_options => ['-U' => 'postgres'],
+    }, 'Should capture pg_dump options';
 }

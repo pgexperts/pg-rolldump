@@ -10,7 +10,7 @@ our $VERSION = '0.10';
 
 sub go {
     my $class = shift;
-    $class->new( $class->_config )->run;
+    $class->new( $class->_getopts )->run;
 }
 
 sub run {
@@ -29,7 +29,7 @@ sub _pod2usage {
     );
 }
 
-sub _config {
+sub _getopts {
     my $self = shift;
     require Getopt::Long;
     Getopt::Long::Configure( qw(bundling) );
@@ -48,7 +48,7 @@ sub _config {
         'keep-weeks|weeks|w=i'   => \$opts{keep_weeks},
         'keep-months|months|m=i' => \$opts{keep_months},
         'keep-years|years|y=i'   => \$opts{keep_years},
-        'hard-link!'             => \$opts{hard_link},
+        'hard-links!'            => \$opts{hard_links},
         'verbose|V+'             => \$opts{verbose},
         'help|H'                 => \$opts{help},
         'man|M'                  => \$opts{man},
@@ -69,6 +69,15 @@ sub _config {
         exit;
     }
 
+    # Check required options.
+    $self->_pod2usage( '-message' => 'Missing required --output-dir option' )
+        unless $opts{directory};
+
+    $self->_pod2usage(
+        '-message' => "Missing required interval option. Specify one or more of:\n    "
+            . join "\n    ", map { "--keep-$_" } qw(hours days weeks months years)
+    ) unless grep { $opts{"keep_$_"} } qw(hours days weeks months years);
+
     return \%opts;
 }
 
@@ -85,6 +94,10 @@ Pg::RollDump - Time-based rolling PostgreSQL cluster backups
  Pg::RollDump->go;
 
 =head1 Usage
+
+  pg_rolldump --dir /path/to/backup/dir [OPTIONS] -- [pg_dump options]
+
+=head1 Examples
 
   pg_rolldump --dir /var/backup/db1 \
     --keep-days    8 \
@@ -118,8 +131,8 @@ This program manages rotating backups from C<pg_dump>.
   -w --weeks  --keep-weeks  WEEKS   Number of weeks' worth of dumps to keep.
   -m --months --keep-months MONTHS  Number of months' worth of dumps to keep.
   -y --years  --keep-years  YEARS   Number of years' worth of dumps to keep.
-     --hard-link                    Hard link duplicate dump files (default).
-     --no-hard-link                 Do not hard link duplicate dump files.
+     --hard-links                   Hard link duplicate dump files (default).
+     --no-hard-links                Do not hard link duplicate dump files.
   -V --verbose                      Incremental verbose mode.
   -H --help                         Print a usage statement and exit.
   -M --man                          Print the complete documentation and exit.
@@ -180,7 +193,7 @@ order for this parameter to have an effect.
 Number of years' worth of dump files to keep. Must be run at least yearly in
 order for this parameter to have an effect.
 
-=item C<hard_link>
+=item C<hard_links>
 
 Boolean indicating whether or not duplicate dump files should be stored as
 hard links. Defaults to true to minimize disk usage.

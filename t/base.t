@@ -9,3 +9,4 @@ BEGIN {
     $CLASS = 'Pg::RollDump';
     use_ok $CLASS or die;
 }
+

@@ -8,5 +8,5 @@ _build
 cover_db/
 Pg-RollDump-*
 META.*
-MYMETA.yml
+MYMETA.*
 MANIFEST

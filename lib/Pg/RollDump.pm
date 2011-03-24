@@ -3,6 +3,15 @@ package Pg::RollDump;
 use strict;
 use warnings;
 use Object::Tiny qw(
+    pg_dump
+    pg_dump_options
+    directory
+    keep_hours
+    keep_days
+    keep_weeks
+    keep_months
+    keep_years
+    hard_links
     verbose
 );
 
@@ -165,6 +174,10 @@ Constructs and returns a Pg::RollDump object. The supported parameters are:
 
 Location of the C<pg_dump> executable. Defaults to just C<pg_dump>, which will
 work fine if it's in the path.
+
+=item C<pg_dump_options>
+
+An array of command-line options to be passed to C<pg_dump>.
 
 =item C<directory>
 

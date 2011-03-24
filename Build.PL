@@ -30,25 +30,52 @@ my $class = Module::Build->subclass(
             chmod 0555, $file;
             return $ret;
         }
+
+        sub ACTION_code {
+            my $self = shift;
+            $self->SUPER::ACTION_code(@_);
+            # Copy the test scripts and then set the shebang line and make
+            # sure that they're executable.
+            my $to_dir = $self->localize_file_path("t/scripts");
+            my $name = 'test_pg_dump';
+            my $script = "$to_dir/$name";
+            my $localized = $self->localize_file_path($script);
+            my $orig = $self->localize_file_path("t/bin/$name");
+            $self->copy_if_modified(
+                from    => $orig,
+                to_dir  => $to_dir,
+                flatten => 1,
+            );
+            $self->fix_shebang_line($localized);
+            $self->make_executable($localized);
+            $self->add_to_cleanup($to_dir);
+        }
     },
 );
 
 $class->new(
     module_name        => 'Pg::RollDump',
     license            => 'perl',
+    add_to_cleanup     => [ 't/scripts' ],
     configure_requires => {
         'Module::Build' => '0.35',
     },
     build_requires     => {
-        'Module::Build'    => '0.35',
-        'Test::More'       => '0.88',
+        'File::Spec::Functions' => 0,
+        'Module::Build'         => '0.35',
+        'Test::File'            => '1.08',
+        'Test::More'            => '0.88',
     },
     requires           => {
         'perl'              => 5.008003,
         'File::Basename'    => 0,
+        'File::Path'        => 0,
+        'File::Spec'        => 0,
         'Getopt::Long'      => 0,
+        'List::Util'        => 0,
         'Object::Tiny'      => 0,
         'Pod::Usage'        => 0,
+        'POSIX'             => 0,
     },
     recommends         => {
         'Test::Pod'           => '1.41',

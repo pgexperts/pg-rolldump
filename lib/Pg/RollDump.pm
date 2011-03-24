@@ -2,6 +2,10 @@ package Pg::RollDump;
 
 use strict;
 use warnings;
+use List::Util 'first';
+use File::Spec;
+use File::Path 'make_path';
+use POSIX 'strftime';
 use Object::Tiny qw(
     pg_dump
     pg_dump_options
@@ -24,6 +28,37 @@ sub go {
 
 sub run {
     my $self = shift;
+
+    my $dir = $self->directory;
+    die "Directory $dir does not exist\n" unless -e $dir;
+    die "$dir is not a directory\n" unless -d $dir;
+
+    # Determine finest-grained interval.
+    my $finest = first { defined $self->{"keep_$_"} }
+        qw(hours days weeks months years);
+
+    die "Missing required interval parameter. Specify one or more of:\n    "
+        . join "\n    ", map { "keep_$_" } qw(hours days weeks months years)
+        unless $finest;
+
+    # Where we gonna put this?
+    my $path = File::Spec->catdir($dir, $finest);
+    my $file = File::Spec->catfile($path, $self->dumpfile);
+    make_path $path;
+
+    my @cmd = ($self->pg_dump, @{ $self->pg_dump_options }, '--file' => $file);
+
+    system(@cmd) == 0 or die "system @cmd failed: $?\n";
+
+    return $self;
+}
+
+sub _date {
+    strftime '%Y-%m-%dT%H:%M:%SZ', gmtime;
+}
+
+sub dumpfile {
+    shift->{dumpfile} ||= _date . '.dump';
 }
 
 sub _pod2usage {

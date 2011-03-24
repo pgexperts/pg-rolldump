@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-use Test::More tests => 33;
+use Test::More tests => 39;
 #use Test::More 'no_plan';
 use Pg::RollDump;
 use Test::MockModule;
@@ -185,4 +185,27 @@ PGDUMP: {
         %defaults,
         pg_dump_options => ['-U' => 'postgres'],
     }, 'Should capture pg_dump options';
+
+    local $SIG{__WARN__} = sub {
+        is shift, "WARNING: The pg_dump `--file hi` option will be ignored\n",
+            'Should get warning for use of --file option';
+    };
+
+    @ARGV = qw(--dir whatever -h 2 -- -U postgres -f hi);
+    is_deeply +Pg::RollDump->_getopts, {
+        %defaults,
+        pg_dump_options => ['-U' => 'postgres'],
+    }, 'Should strip -f pg_dump option';
+
+    @ARGV = qw(--dir whatever -h 2 -- -U postgres --file hi);
+    is_deeply +Pg::RollDump->_getopts, {
+        %defaults,
+        pg_dump_options => ['-U' => 'postgres'],
+    }, 'Should strip --file pg_dump option';
+
+    @ARGV = qw(--dir whatever -h 2 -- -U postgres --file=hi);
+    is_deeply +Pg::RollDump->_getopts, {
+        %defaults,
+        pg_dump_options => ['-U' => 'postgres'],
+    }, 'Should strip --file=hi pg_dump option';
 }

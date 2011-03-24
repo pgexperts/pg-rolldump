@@ -87,6 +87,15 @@ sub _getopts {
             . join "\n    ", map { "--keep-$_" } qw(hours days weeks months years)
     ) unless grep { $opts{"keep_$_"} } qw(hours days weeks months years);
 
+    if (@ARGV) {
+        # Strip out the -f and --file options.
+        shift @ARGV if $ARGV[0] eq '--';
+        Getopt::Long::Configure( qw(bundling passthrough) );
+        Getopt::Long::GetOptions('file|f=s' => \my $file);
+        warn "WARNING: The pg_dump `--file $file` option will be ignored\n"
+            if defined $file;
+    }
+
     $opts{pg_dump_options} = \@ARGV;
 
     return \%opts;

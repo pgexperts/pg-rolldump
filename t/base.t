@@ -1,8 +1,8 @@
 #!/usr/bin/perl -w
 
 use strict;
-#use Test::More tests => 2;
-use Test::More 'no_plan';
+use Test::More tests => 117;
+#use Test::More 'no_plan';
 use File::Spec::Functions qw(catdir catfile);
 use File::Path qw(make_path remove_tree);
 use Test::File;

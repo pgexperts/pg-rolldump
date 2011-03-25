@@ -23,7 +23,7 @@ our $VERSION = '0.10';
 
 sub go {
     my $class = shift;
-    $class->new( $class->_getopts )->run;
+    $class->new( %{ $class->_getopts } )->run;
 }
 
 sub run {
@@ -64,6 +64,7 @@ sub _rolldump {
     for my $interval (
         grep { defined $self->{"keep_$_"} } qw(hours days weeks months years)
     ) {
+        make_path +File::Spec->catdir($self->directory, $interval);
         my $keep = $self->{"keep_$interval"};
         my $files = $self->_files_for($interval);
         push @{ $files }, $self->_link_for($interval, $file)

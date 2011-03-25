@@ -10,3 +10,4 @@ Pg-RollDump-*
 META.*
 MYMETA.*
 MANIFEST
+t/scripts/

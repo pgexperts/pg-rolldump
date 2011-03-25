@@ -6,6 +6,7 @@ use Test::More 'no_plan';
 use File::Spec::Functions qw(catdir catfile);
 use File::Path qw(make_path remove_tree);
 use Test::File;
+use Test::MockModule;
 
 my $CLASS;
 BEGIN {
@@ -28,6 +29,11 @@ can_ok $CLASS, qw(
     hard_links
     verbose
     dumpfile
+    _rolldump
+    _need_link
+    _link_for
+    _files_for
+    _parse_date
     _pod2usage
     _getopts
 );
@@ -54,6 +60,39 @@ my $rd = new_ok $CLASS, [
 ok my $dumpfile = $rd->dumpfile, 'Get dumpfile name';
 like $dumpfile, qr{^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z[.]dump$},
     'Dumpfile name should include the timestamp';
+like $rd->{time}, qr/^\d{10,}$/, 'Should have cached the time';
+
+is_deeply Pg::RollDump::_parse_date('2011-03-24T18:11:37Z'), {
+    year  => 2011,
+    month => 3,
+    day   => 24,
+    hour  => 18,
+}, '_parse_date() should work';
+
+is_deeply Pg::RollDump::_parse_date('2011-03-24T18:11:37Z.dump'), {
+    year  => 2011,
+    month => 3,
+    day   => 24,
+    hour  => 18,
+}, '_parse_date() should work for file name';
+
+is_deeply Pg::RollDump::_parse_date(
+    '2010-12-19T19:42:34Z/foo/2011-03-24T18:11:37Z'
+), {
+    year  => 2011,
+    month => 3,
+    day   => 24,
+    hour  => 18,
+}, '_parse_date() should parse only date from the end of the string';
+
+is_deeply Pg::RollDump::_parse_date(
+    '2010-12-19T19:42:34Z/foo/2011-03-24T18:11:37Z.dump'
+), {
+    year  => 2011,
+    month => 3,
+    day   => 24,
+    hour  => 18,
+}, '_parse_date() should parse only date from the end of the file name';
 
 # We should get error for non-existent directory.
 local $@;
@@ -70,6 +109,10 @@ like $@, qr/$dir is not a directory/,
     'Should be error for invalid directory';
 remove_tree $dir;
 
+# Disable rolldump.
+my $mocker = Test::MockModule->new('Pg::RollDump');
+$mocker->mock(_rolldump => sub { pass '_rolldump should be called'; shift });
+
 # Okay, create the directory now for realz.
 make_path $dir;
 ok $rd->run, 'Run the backup!';
@@ -81,4 +124,89 @@ is do {
     local $/;
     <$fh>;
 }, "-U\npostgres\n--file\n$fn\n",
+    'The proper options should have been passed to pg_dump';
+
+##############################################################################
+# Great, now make sure the rollover stuff works. Mock the date for a Sunday.
+$mocker->mock(dumpfile => '2011-03-27T18:11:37Z.dump');
+$rd->{time} = 1301249497;
+
+# Test files_for()
+is_deeply $rd->_files_for('hour'), [], 'Should start with no hourly files';
+
+# Let's add three hourly files.
+make_path catdir($dir, 'hour');
+for my $hour (15, 16, 17) {
+    my $fn = catfile $dir, 'hour', "2011-03-27T$hour:11:37Z.dump";
+    open my $fh, '>', $fn or die "Cannot open $fn: $!\n";
+    print $fh 'whatever';
+    close $fh;
+}
+
+is_deeply $rd->_files_for('hour'), [
+    map {
+        catfile $dir, 'hour', "2011-03-27T$_:11:37Z.dump"
+    } qw(15 16 17)
+], 'Should have the three files from _files_for(hour)';
+
+# Test _need_link().
+my $date =  {
+    year  => 2011,
+    month => 3,
+    day   => 27,
+    hour  => 18,
+};
+
+# Test need when no previous.
+ok $rd->_need_link($_, $date, []), "Should need $_ link when no previous"
+    for qw(hours days weeks months years);
+
+# Test need measured from previous.
+for my $spec (
+    [ hours  => '2011-03-27T17:11:37Z' ],
+    [ hours  => '2011-03-27T16:11:37Z' ],
+    [ hours  => '2011-02-27T18:11:37Z' ],
+    [ hours  => '2011-02-27T22:11:37Z' ],
+    [ hours  => '2010-03-27T18:11:37Z' ],
+    [ days   => '2011-03-26T17:11:37Z' ],
+    [ days   => '2011-03-01T17:11:37Z' ],
+    [ days   => '2011-02-28T17:11:37Z' ],
+    [ days   => '2010-03-26T17:11:37Z' ],
+    [ weeks  => '2010-04-03T17:11:37Z' ],
+    [ weeks  => '2011-03-20T17:11:37Z' ],
+    [ weeks  => '2011-03-26T17:11:37Z' ],
+    [ months => '2011-02-27T17:11:37Z' ],
+    [ months => '2011-02-28T17:11:37Z' ],
+    [ months => '2010-03-28T17:11:37Z' ],
+    [ months => '2011-01-28T17:11:37Z' ],
+    [ years  => '2010-03-27T17:11:37Z' ],
+    [ years  => '2009-03-27T17:11:37Z' ],
+) {
+    ok $rd->_need_link($spec->[0], $date, ["root/hour/$spec->[1].dump"]),
+        "Should need $spec->[0] link since $spec->[1]";
+}
+
+# Test don't need measured from previous.
+for my $spec (
+    [ hours  => '2011-03-27T18:11:37Z' ],
+    [ hours  => '2011-03-27T22:11:37Z' ],
+    [ hours  => '2011-05-16T22:11:37Z' ],
+    [ days   => '2011-03-27T17:11:37Z' ],
+    [ days   => '2011-03-29T17:11:37Z' ],
+    [ days   => '2011-04-26T17:11:37Z' ],
+    [ days   => '2012-03-26T17:11:37Z' ],
+    [ weeks  => '2011-03-27T17:11:37Z' ],
+    [ weeks  => '2011-03-29T17:11:37Z' ],
+    [ weeks  => '2011-04-03T17:11:37Z' ],
+    [ months => '2011-03-27T17:11:37Z' ],
+    [ months => '2011-03-01T17:11:37Z' ],
+    [ months => '2011-04-27T17:11:37Z' ],
+    [ months => '2012-03-27T17:11:37Z' ],
+    [ years  => '2011-03-27T17:11:37Z' ],
+    [ years  => '2011-02-27T17:11:37Z' ],
+    [ years  => '2012-03-27T17:11:37Z' ],
+) {
+    ok !$rd->_need_link($spec->[0], $date, ["root/hour/$spec->[1].dump"]),
+        "Should not need $spec->[0] link since $spec->[1]";
+}
 

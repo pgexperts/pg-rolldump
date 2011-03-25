@@ -29,6 +29,9 @@ sub go {
 sub run {
     my $self = shift;
 
+    # Fail early.
+    require File::Copy unless $self->hard_links;
+
     my $dir = $self->directory;
     die "Directory $dir does not exist\n" unless -e $dir;
     die "$dir is not a directory\n" unless -d $dir;
@@ -50,15 +53,101 @@ sub run {
 
     system(@cmd) == 0 or die "system @cmd failed: $?\n";
 
-    return $self;
+    # Roll wid'it.
+    return $self->_rolldump($file);
 }
 
-sub _date {
-    strftime '%Y-%m-%dT%H:%M:%SZ', gmtime;
+sub _rolldump {
+    my ($self, $file) = @_;
+    my $date = _parse_date($self->dumpfile);
+
+    for my $interval (
+        grep { defined $self->{"keep_$_"} }
+        qw(hours days weeks months years)
+    ) {
+        my $keep = $self->{"keep_$interval"};
+        my $files = $self->_files_for($interval);
+        $self->_link_for($interval, $date, $file, $files);
+        unlink shift @{ $files } while @{ $files } > $keep;
+    }
+}
+
+my %compare = (
+    hours => sub {
+        my ($c, $n) = @_;
+        my $f = '%u-%02u-%02u-%02u';
+        return sprintf($f, @{ $c }{qw(year month day hour)})
+            lt sprintf($f, @{ $n }{qw(year month day hour)});
+    },
+    days => sub {
+        my ($c, $n) = @_;
+        my $f = '%u-%02u-%02u';
+        return sprintf($f, @{ $c }{qw(year month day)})
+            lt sprintf($f, @{ $n }{qw(year month day)})
+    },
+    weeks => sub {
+        my ($c, $n, $t) = @_;
+        my $f = '%u-%02u-%02u';
+        return sprintf($f, @{ $c }{qw(year month day)})
+            lt sprintf($f, @{ $n }{qw(year month day)})
+            && (gmtime($t))[6] == 0;
+    },
+    months => sub {
+        my ($c, $n) = @_;
+        my $f = '%u-%02u';
+        return sprintf($f, @{ $c }{qw(year month)})
+            lt sprintf($f, @{ $n }{qw(year month)})
+    },
+    years => sub {
+        $_[0]->{year} < $_[1]->{year}
+    },
+);
+
+sub _need_link {
+    my ($self, $interval, $date, $files) = @_;
+    return !@{ $files } || $compare{$interval}->(
+        _parse_date($files->[-1]),
+        $date,
+        $self->{time}
+    );
+}
+
+sub _link_for {
+    my ($self, $interval, $date, $file, $files) = @_;
+    if ($self->_need_link($interval, $date, $files)) {
+        my $dst = File::Spec->catfile($self->directory, 'interval', $self->dumpfile);
+        # Link the latest dump.
+        if ($self->hard_links) {
+            link $file, $dst;
+        } else {
+            File::Copy::copy($file, $dst);
+        }
+        push @{ $files } => $dst;
+    }
+}
+
+sub _files_for {
+    my ($self, $interval) = @_;
+    my $path = File::Spec->catdir($self->directory, $interval);
+    [ glob File::Spec->catfile($path, '*.dump') ];
 }
 
 sub dumpfile {
-    shift->{dumpfile} ||= _date . '.dump';
+    my $self = shift;
+    $self->{dumpfile} ||= strftime(
+        '%Y-%m-%dT%H:%M:%SZ',
+        gmtime($self->{time} = time)
+    ) . '.dump';
+}
+
+sub _parse_date {
+    $_[0] =~ qr{\b(\d{4})-(\d{2})-(\d{2})T(\d{2}):\d{2}:\d{2}Z(?:[.]dump)?$};
+    return {
+        year  => $1,
+        month => $2 + 0,
+        day   => $3 + 0,
+        hour  => $4 + 0,
+    };
 }
 
 sub _pod2usage {
@@ -230,27 +319,35 @@ Directory in which to store the dump files. Required.
 =item C<keep_hours>
 
 Number of hours' worth of dump files to keep. Must be run hourly in order for
-this parameter to have an effect.
+this parameter to have an effect. An hour is assumed to have passed if the
+current hour is greater than the hour of the last retained dump.
 
 =item C<keep_days>
 
 Number of days' worth of dump files to keep. Must be run at least daily in
-order for this parameter to have an effect.
+order for this parameter to have an effect. A day is assumed to have passed if
+the current date is greater than the date of the last retained dump.
 
 =item C<keep_weeks>
 
 Number of weeks' worth of dump files to keep. Must be run at least weekly in
-order for this parameter to have an effect.
+order for this parameter to have an effect. A week is assumed to have passed
+if the current date is greater than the date of the last retained dump and the
+day of the week is Sunday.
 
 =item C<keep_months>
 
 Number of months' worth of dump files to keep. Must be run at least monthly in
-order for this parameter to have an effect.
+order for this parameter to have an effect. A month is assumed to have passed
+if the current year and month are greater than the year and month of the last
+retained dump.
 
 =item C<keep_years>
 
 Number of years' worth of dump files to keep. Must be run at least yearly in
-order for this parameter to have an effect.
+order for this parameter to have an effect. A year is assumed to have passed
+if the current year is greater than the year and month of the last retained
+dump.
 
 =item C<hard_links>
 
@@ -274,14 +371,11 @@ more verbose (up to 3).
 
 Runs the backups and manages the rolling backups.
 
-=head2 Instance Accessors
+=head3 C<dumpfile>
 
-=head3 C<verbose>
+  my $filename = $rolldump->dumpfile;
 
-  my $verbose = $rolldump->verbose;
-
-Returns the value passed for the C<verbose> parameter to C<new()>. Defaults to
-0.
+Returns the base file name to be used for the dump file.
 
 =head1 Support
 

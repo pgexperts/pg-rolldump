@@ -213,3 +213,33 @@ for my $spec (
     ok !$rd->_need_link($spec->[0], $date, ["root/hour/$spec->[1].dump"]),
         "Should not need $spec->[0] link since $spec->[1]";
 }
+
+##############################################################################
+# Test _link_for(). We need a file to link.
+my $file = catfile $dir, 'hours', $rd->dumpfile;
+open $fh, '>', $file or die "Cannot open $file: $!\n";
+print $fh 'whatever';
+ok !$rd->_link_for('hours', $file),
+    'Should create no hourly link because the file already exists';
+
+for my $interval (qw(days weeks months years)) {
+    local $rd->{hard_links} = 1;
+    make_path catdir $dir, $interval;
+    my $dest = catfile $dir, $interval, $rd->dumpfile;
+    file_not_exists_ok $dest, "$interval link should not exist";
+    is $rd->_link_for($interval, $file), $dest,
+        "Should create $interval file link";
+    file_exists_ok $dest, "$interval link should now exist";
+    link_count_is_ok $file, 2, "Original file should have 2 hard links";
+
+    # Test copying.
+    unlink $dest;
+    $rd->{hard_links} = 0;
+    is $rd->_link_for($interval, $file), $dest,
+        "Should copy $interval file";
+    file_exists_ok $dest, "$interval copy should now exist";
+    link_count_is_ok $file, 1, "Original file should have 1 hard link";
+}
+
+
+

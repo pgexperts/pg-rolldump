@@ -115,15 +115,16 @@ sub _need_link {
 sub _link_for {
     my ($self, $interval, $file) = @_;
 
-    my $dst = File::Spec->catfile($self->directory, $interval, $self->dumpfile);
-    return if $dst eq $file;
+    my $dest = File::Spec->catfile($self->directory, $interval, $self->dumpfile);
+    return if $dest eq $file;
 
     if ($self->hard_links) {
-        link $file, $dst;
+        link $file, $dest or die "Cannot link $file to $dest: $!\n";
     } else {
-        File::Copy::copy($file, $dst);
+        File::Copy::copy($file, $dest)
+            or die "Cannot copy $file to $dest: $!\n";
     }
-    return $dst;
+    return $dest;
 }
 
 sub _files_for {

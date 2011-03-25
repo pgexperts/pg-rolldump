@@ -241,5 +241,27 @@ for my $interval (qw(days weeks months years)) {
     link_count_is_ok $file, 1, "Original file should have 1 hard link";
 }
 
+##############################################################################
+# Test _rolldump().
+$mocker->unmock('_rolldump');
 
+$mocker->mock(_link_for => 'newlink');
+$rd->{keep_hours} = undef;
 
+for my $interval (qw(hours days weeks months years)) {
+    # Start out assuming everything needs a link.
+    $mocker->mock(_need_link => 1);
+    local $rd->{"keep_$interval"} = 2;
+    my $old = catfile $dir, $interval, $rd->dumpfile;
+    my @files = ($old, 'mumble');
+    $mocker->mock(_files_for => \@files);
+    file_exists_ok $old, "Old $interval file should exist";
+    ok $rd->_rolldump($file), 'Roll the file';
+    file_not_exists_ok $old, "Old $interval file should be gone";
+    is_deeply \@files, [qw(mumble newlink )], 'File list should be two latest';
+
+    # Now assume we don't need a link.
+    $mocker->mock(_need_link => 0);
+    ok $rd->_rolldump($file), 'Roll the files again';
+    is_deeply \@files, [qw(mumble newlink )], 'File list should be unchanged';
+}

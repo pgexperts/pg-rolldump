@@ -68,8 +68,12 @@ sub _rolldump {
         my $files = $self->_files_for($interval);
         push @{ $files }, $self->_link_for($interval, $file)
             if $self->_need_link($interval, $date, $files);
-        unlink shift @{ $files } while @{ $files } > $keep;
+        while (@{ $files } > $keep) {
+            my $to_delete = shift @{ $files };
+            unlink $to_delete or die "Cannot unlink $to_delete: $!\n";
+        }
     }
+    return $self;
 }
 
 my %compare = (

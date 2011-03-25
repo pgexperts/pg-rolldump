@@ -13,14 +13,16 @@ monthly, and yearly intervals.
 Support
 -------
 
-This module is stored in the [GitHub repository]. Feel free to fork and send
-pull requests. Please send bug reports to <bug-pg-rolldump@rt.cpan.org> or via
-the [GitHub issue tracker].
+This module is stored in a [GitHub
+repository](https://github.com/pgexperts/pg-rolldump). Feel free to fork and
+send pull requests. Please send bug reports to <bug-pg-rolldump@rt.cpan.org>
+or via the [GitHub issue
+tracker](https://github.com/pgexperts/pg-rolldump/issues).
 
 Author
 ------
 
-[David E. Wheeler](http://justatheory.com/) <david.wheeler@pgexperts.com>
+[David E. Wheeler](http://justatheory.com/)
 
 Copyright and License
 ---------------------

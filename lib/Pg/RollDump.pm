@@ -62,12 +62,12 @@ sub _rolldump {
     my $date = _parse_date($self->dumpfile);
 
     for my $interval (
-        grep { defined $self->{"keep_$_"} }
-        qw(hours days weeks months years)
+        grep { defined $self->{"keep_$_"} } qw(hours days weeks months years)
     ) {
         my $keep = $self->{"keep_$interval"};
         my $files = $self->_files_for($interval);
-        $self->_link_for($interval, $date, $file, $files);
+        push @{ $files }, $self->_link_for($interval, $file)
+            if $self->_need_link($interval, $date, $files);
         unlink shift @{ $files } while @{ $files } > $keep;
     }
 }
@@ -113,17 +113,17 @@ sub _need_link {
 }
 
 sub _link_for {
-    my ($self, $interval, $date, $file, $files) = @_;
-    if ($self->_need_link($interval, $date, $files)) {
-        my $dst = File::Spec->catfile($self->directory, 'interval', $self->dumpfile);
-        # Link the latest dump.
-        if ($self->hard_links) {
-            link $file, $dst;
-        } else {
-            File::Copy::copy($file, $dst);
-        }
-        push @{ $files } => $dst;
+    my ($self, $interval, $file) = @_;
+
+    my $dst = File::Spec->catfile($self->directory, $interval, $self->dumpfile);
+    return if $dst eq $file;
+
+    if ($self->hard_links) {
+        link $file, $dst;
+    } else {
+        File::Copy::copy($file, $dst);
     }
+    return $dst;
 }
 
 sub _files_for {

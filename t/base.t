@@ -127,29 +127,32 @@ is do {
     'The proper options should have been passed to pg_dump';
 
 ##############################################################################
-# Great, now make sure the rollover stuff works. Mock the date for a Sunday.
+# Test files_for()
 $mocker->mock(dumpfile => '2011-03-27T18:11:37Z.dump');
 $rd->{time} = 1301249497;
-remove_tree $dir;
 
-# Test files_for()
-is_deeply $rd->_files_for('hours'), [], 'Should start with no hourly files';
+is_deeply $rd->_files_for('days'), [], 'Should start with no daily files';
 
-# Let's add three hourly files.
-make_path catdir($dir, 'hours');
-for my $hour (15, 16, 17) {
-    my $fn = catfile $dir, 'hours', "2011-03-27T$hour:11:37Z.dump";
+# Let's add three daily files.
+make_path catdir($dir, 'days');
+for my $day (24, 25, 26) {
+    my $fn = catfile $dir, 'days', "2011-03-${day}T18:11:37Z.dump";
     open my $fh, '>', $fn or die "Cannot open $fn: $!\n";
     print $fh 'whatever';
     close $fh;
 }
 
-is_deeply $rd->_files_for('hours'), [
+is_deeply $rd->_files_for('days'), [
     map {
-        catfile $dir, 'hours', "2011-03-27T$_:11:37Z.dump"
-    } qw(15 16 17)
-], 'Should have the three files from _files_for(hours)';
+        catfile $dir, 'days', "2011-03-${_}T18:11:37Z.dump"
+    } qw(24 25 26)
+], 'Should have the three files from _files_for(days)';
 
+unlink $_ for map {
+    catfile $dir, 'days', "2011-03-${_}T18:11:37Z.dump"
+} qw(24 25 26);
+
+##############################################################################
 # Test _need_link().
 my $date =  {
     year  => 2011,

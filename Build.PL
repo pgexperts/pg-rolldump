@@ -63,7 +63,7 @@ $class->new(
     build_requires     => {
         'File::Spec::Functions' => 0,
         'Module::Build'         => '0.35',
-        'Test::File'            => '1.08',
+        'Test::File'            => '1.26',
         'Test::More'            => '0.88',
     },
     requires           => {

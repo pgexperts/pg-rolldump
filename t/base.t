@@ -130,24 +130,25 @@ is do {
 # Great, now make sure the rollover stuff works. Mock the date for a Sunday.
 $mocker->mock(dumpfile => '2011-03-27T18:11:37Z.dump');
 $rd->{time} = 1301249497;
+remove_tree $dir;
 
 # Test files_for()
-is_deeply $rd->_files_for('hour'), [], 'Should start with no hourly files';
+is_deeply $rd->_files_for('hours'), [], 'Should start with no hourly files';
 
 # Let's add three hourly files.
-make_path catdir($dir, 'hour');
+make_path catdir($dir, 'hours');
 for my $hour (15, 16, 17) {
-    my $fn = catfile $dir, 'hour', "2011-03-27T$hour:11:37Z.dump";
+    my $fn = catfile $dir, 'hours', "2011-03-27T$hour:11:37Z.dump";
     open my $fh, '>', $fn or die "Cannot open $fn: $!\n";
     print $fh 'whatever';
     close $fh;
 }
 
-is_deeply $rd->_files_for('hour'), [
+is_deeply $rd->_files_for('hours'), [
     map {
-        catfile $dir, 'hour', "2011-03-27T$_:11:37Z.dump"
+        catfile $dir, 'hours', "2011-03-27T$_:11:37Z.dump"
     } qw(15 16 17)
-], 'Should have the three files from _files_for(hour)';
+], 'Should have the three files from _files_for(hours)';
 
 # Test _need_link().
 my $date =  {
@@ -209,4 +210,3 @@ for my $spec (
     ok !$rd->_need_link($spec->[0], $date, ["root/hour/$spec->[1].dump"]),
         "Should not need $spec->[0] link since $spec->[1]";
 }
-

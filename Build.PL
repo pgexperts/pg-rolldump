@@ -69,7 +69,7 @@ $class->new(
     requires           => {
         'perl'              => 5.008003,
         'File::Basename'    => 0,
-        'File::Path'        => 0,
+        'File::Path'        => '2.07',
         'File::Spec'        => 0,
         'Getopt::Long'      => 0,
         'List::Util'        => 0,

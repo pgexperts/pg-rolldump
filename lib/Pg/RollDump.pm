@@ -10,6 +10,7 @@ use Object::Tiny qw(
     pg_dump
     pg_dump_options
     directory
+    prefix
     keep_hours
     keep_days
     keep_weeks
@@ -140,8 +141,8 @@ sub _files_for {
 
 sub dumpfile {
     my $self = shift;
-    $self->{dumpfile} ||= strftime(
-        '%Y%m%d-%H%M%S',
+    $self->{dumpfile} ||= $self->prefix . strftime(
+        '-%Y%m%d-%H%M%S',
         gmtime($self->{time} = time)
     ) . '.dmp';
 }
@@ -182,6 +183,7 @@ sub _getopts {
     Getopt::Long::GetOptions(
         'pg-dump|b=s'            => \$opts{pg_dump},
         'output-dir|dir|o=s'     => \$opts{directory},
+        'file-prefix|prefix|p=s' => \$opts{prefix},
         'keep-hours|hours|h=i'   => \$opts{keep_hours},
         'keep-days|days|d=i'     => \$opts{keep_days},
         'keep-weeks|weeks|w=i'   => \$opts{keep_weeks},
@@ -221,9 +223,20 @@ sub _getopts {
         # Strip out the -f and --file options.
         shift @ARGV if $ARGV[0] eq '--';
         Getopt::Long::Configure( qw(bundling passthrough) );
-        Getopt::Long::GetOptions('file|f=s' => \my $file);
+        Getopt::Long::GetOptions(
+            'file|f=s' => \my $file,
+            'host|h=s' => \my $host,
+        );
         warn "WARNING: The pg_dump `--file $file` option will be ignored\n"
             if defined $file;
+
+        # Use --host for the default prefix.
+        if ($host) {
+            push @ARGV => '--host' => $host;
+            $opts{prefix} ||= $host
+        } else {
+            $opts{prefix} ||= 'localhost';
+        }
     }
 
     $opts{pg_dump_options} = \@ARGV;
@@ -276,6 +289,7 @@ This program manages rotating backups from C<pg_dump>.
 
   -b --pg-dump              PATH    Path to C<pg_dump>
   -o --dir    --output-dir  DIR     Directory in which to store dump files
+  -p --prefix --file-prefix PREFIX  Prefix to use in dump file names.
   -h --hours  --keep-hours  HOURS   Number of hours' worth of dumps to keep.
   -d --days   --keep-days   DAYS    Number of days' worth of dumps to keep.
   -w --weeks  --keep-weeks  WEEKS   Number of weeks' worth of dumps to keep.
@@ -321,6 +335,10 @@ An array of command-line options to be passed to C<pg_dump>.
 =item C<directory>
 
 Directory in which to store the dump files. Required.
+
+=item C<prefix>
+
+Prefix to use at the beginning of dump file names.
 
 =item C<keep_hours>
 

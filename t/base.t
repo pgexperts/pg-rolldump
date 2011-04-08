@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-use Test::More tests => 117;
+use Test::More tests => 118;
 #use Test::More 'no_plan';
 use File::Spec::Functions qw(catdir catfile);
 use File::Path qw(make_path remove_tree);
@@ -54,11 +54,12 @@ my $rd = new_ok $CLASS, [
     directory       => $dir,
     keep_hours      => 2,
     pg_dump         => $pg_dump,
+    prefix          => 'foo',
     pg_dump_options => [qw(-U postgres)],
 ], "Create a $CLASS object";
 
 ok my $dumpfile = $rd->dumpfile, 'Get dumpfile name';
-like $dumpfile, qr{^\d{4}\d{2}\d{2}-\d{2}\d{2}\d{2}[.]dmp$},
+like $dumpfile, qr{^foo-\d{4}\d{2}\d{2}-\d{2}\d{2}\d{2}[.]dmp$},
     'Dumpfile name should include the timestamp';
 like $rd->{time}, qr/^\d{10,}$/, 'Should have cached the time';
 
@@ -75,6 +76,13 @@ is_deeply Pg::RollDump::_parse_date('20110324-181137.dmp'), {
     day   => 24,
     hour  => 18,
 }, '_parse_date() should work for file name';
+
+is_deeply Pg::RollDump::_parse_date('foo-20110324-181137.dmp'), {
+    year  => 2011,
+    month => 3,
+    day   => 24,
+    hour  => 18,
+}, '_parse_date() should work for prefixed file name';
 
 is_deeply Pg::RollDump::_parse_date(
     '20101219-194234Z/foo/20110324-181137'

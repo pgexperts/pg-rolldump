@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-use Test::More tests => 39;
+use Test::More tests => 43;
 #use Test::More 'no_plan';
 use Pg::RollDump;
 use Test::MockModule;
@@ -15,6 +15,7 @@ my %defaults = (
     keep_weeks  => undef,
     keep_years  => undef,
     man         => undef,
+    prefix      => undef,
     pg_dump     => 'pg_dump',
     pg_dump_options => [],
     verbose     => 0,
@@ -179,6 +180,7 @@ HELP: {
 PGDUMP: {
     local $defaults{keep_hours} = 2;
     local $defaults{directory} = 'whatever';
+    local $defaults{prefix} = 'localhost';
 
     local @ARGV = qw(--dir whatever -h 2 -- -U postgres);
     is_deeply +Pg::RollDump->_getopts, {
@@ -208,4 +210,33 @@ PGDUMP: {
         %defaults,
         pg_dump_options => ['-U' => 'postgres'],
     }, 'Should strip --file=hi pg_dump option';
+
+    # Process the --host option.
+    @ARGV = qw(--dir whatever -h 2 -- -U postgres -h hi);
+    is_deeply +Pg::RollDump->_getopts, {
+        %defaults,
+        prefix => 'hi',
+        pg_dump_options => ['-U' => 'postgres', '--host', 'hi'],
+    }, 'Should capture -h option for prefix';
+
+    @ARGV = qw(--dir whatever -h 2 -- -U postgres --host hi);
+    is_deeply +Pg::RollDump->_getopts, {
+        %defaults,
+        prefix => 'hi',
+        pg_dump_options => ['-U' => 'postgres', '--host', 'hi'],
+    }, 'Should capture --host option for prefix';
+
+    @ARGV = qw(--dir whatever -h 2 -- -U postgres --host=hi);
+    is_deeply +Pg::RollDump->_getopts, {
+        %defaults,
+        prefix => 'hi',
+        pg_dump_options => ['-U' => 'postgres', '--host', 'hi'],
+    }, 'Should capture --host= option for prefix';
+
+    @ARGV = qw(--dir whatever -h 2 -p howdy -- -U postgres -h hi);
+    is_deeply +Pg::RollDump->_getopts, {
+        %defaults,
+        prefix => 'howdy',
+        pg_dump_options => ['-U' => 'postgres', '--host', 'hi'],
+    }, 'Should ignore --host when already have a prefix'
 }

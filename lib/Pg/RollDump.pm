@@ -135,19 +135,19 @@ sub _link_for {
 sub _files_for {
     my ($self, $interval) = @_;
     my $path = File::Spec->catdir($self->directory, $interval);
-    [ glob File::Spec->catfile($path, '*.dump') ];
+    [ glob File::Spec->catfile($path, '*.dmp') ];
 }
 
 sub dumpfile {
     my $self = shift;
     $self->{dumpfile} ||= strftime(
-        '%Y-%m-%dT%H:%M:%SZ',
+        '%Y%m%d-%H%M%S',
         gmtime($self->{time} = time)
-    ) . '.dump';
+    ) . '.dmp';
 }
 
 sub _parse_date {
-    $_[0] =~ qr{\b(\d{4})-(\d{2})-(\d{2})T(\d{2}):\d{2}:\d{2}Z(?:[.]dump)?$};
+    $_[0] =~ qr{\b(\d{4})(\d{2})(\d{2})-(\d{2})\d{2}\d{2}(?:[.]dmp)?$};
     return {
         year  => $1,
         month => $2 + 0,
@@ -274,7 +274,7 @@ This program manages rotating backups from C<pg_dump>.
 
 =head1 Options
 
-  -b --pg-dump PATH         Path to C<pg_dump>
+  -b --pg-dump              PATH    Path to C<pg_dump>
   -o --dir    --output-dir  DIR     Directory in which to store dump files
   -h --hours  --keep-hours  HOURS   Number of hours' worth of dumps to keep.
   -d --days   --keep-days   DAYS    Number of days' worth of dumps to keep.

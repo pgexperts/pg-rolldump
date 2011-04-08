@@ -58,18 +58,18 @@ my $rd = new_ok $CLASS, [
 ], "Create a $CLASS object";
 
 ok my $dumpfile = $rd->dumpfile, 'Get dumpfile name';
-like $dumpfile, qr{^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z[.]dump$},
+like $dumpfile, qr{^\d{4}\d{2}\d{2}-\d{2}\d{2}\d{2}[.]dmp$},
     'Dumpfile name should include the timestamp';
 like $rd->{time}, qr/^\d{10,}$/, 'Should have cached the time';
 
-is_deeply Pg::RollDump::_parse_date('2011-03-24T18:11:37Z'), {
+is_deeply Pg::RollDump::_parse_date('20110324-181137'), {
     year  => 2011,
     month => 3,
     day   => 24,
     hour  => 18,
 }, '_parse_date() should work';
 
-is_deeply Pg::RollDump::_parse_date('2011-03-24T18:11:37Z.dump'), {
+is_deeply Pg::RollDump::_parse_date('20110324-181137.dmp'), {
     year  => 2011,
     month => 3,
     day   => 24,
@@ -77,7 +77,7 @@ is_deeply Pg::RollDump::_parse_date('2011-03-24T18:11:37Z.dump'), {
 }, '_parse_date() should work for file name';
 
 is_deeply Pg::RollDump::_parse_date(
-    '2010-12-19T19:42:34Z/foo/2011-03-24T18:11:37Z'
+    '20101219-194234Z/foo/20110324-181137'
 ), {
     year  => 2011,
     month => 3,
@@ -86,7 +86,7 @@ is_deeply Pg::RollDump::_parse_date(
 }, '_parse_date() should parse only date from the end of the string';
 
 is_deeply Pg::RollDump::_parse_date(
-    '2010-12-19T19:42:34Z/foo/2011-03-24T18:11:37Z.dump'
+    '20101219-194234Z/foo/20110324-181137.dmp'
 ), {
     year  => 2011,
     month => 3,
@@ -128,7 +128,7 @@ is do {
 
 ##############################################################################
 # Test files_for()
-$mocker->mock(dumpfile => '2011-03-27T18:11:37Z.dump');
+$mocker->mock(dumpfile => '20110327-181137.dmp');
 $rd->{time} = 1301249497;
 
 is_deeply $rd->_files_for('days'), [], 'Should start with no daily files';
@@ -136,7 +136,7 @@ is_deeply $rd->_files_for('days'), [], 'Should start with no daily files';
 # Let's add three daily files.
 make_path catdir($dir, 'days');
 for my $day (24, 25, 26) {
-    my $fn = catfile $dir, 'days', "2011-03-${day}T18:11:37Z.dump";
+    my $fn = catfile $dir, 'days', "201103${day}-181137.dmp";
     open my $fh, '>', $fn or die "Cannot open $fn: $!\n";
     print $fh 'whatever';
     close $fh;
@@ -144,12 +144,12 @@ for my $day (24, 25, 26) {
 
 is_deeply $rd->_files_for('days'), [
     map {
-        catfile $dir, 'days', "2011-03-${_}T18:11:37Z.dump"
+        catfile $dir, 'days', "201103${_}-181137.dmp"
     } qw(24 25 26)
 ], 'Should have the three files from _files_for(days)';
 
 unlink $_ for map {
-    catfile $dir, 'days', "2011-03-${_}T18:11:37Z.dump"
+    catfile $dir, 'days', "201103${_}-181137.dmp"
 } qw(24 25 26);
 
 ##############################################################################
@@ -167,50 +167,50 @@ ok $rd->_need_link($_, $date, []), "Should need $_ link when no previous"
 
 # Test need measured from previous.
 for my $spec (
-    [ hours  => '2011-03-27T17:11:37Z' ],
-    [ hours  => '2011-03-27T16:11:37Z' ],
-    [ hours  => '2011-02-27T18:11:37Z' ],
-    [ hours  => '2011-02-27T22:11:37Z' ],
-    [ hours  => '2010-03-27T18:11:37Z' ],
-    [ days   => '2011-03-26T17:11:37Z' ],
-    [ days   => '2011-03-01T17:11:37Z' ],
-    [ days   => '2011-02-28T17:11:37Z' ],
-    [ days   => '2010-03-26T17:11:37Z' ],
-    [ weeks  => '2010-04-03T17:11:37Z' ],
-    [ weeks  => '2011-03-20T17:11:37Z' ],
-    [ weeks  => '2011-03-26T17:11:37Z' ],
-    [ months => '2011-02-27T17:11:37Z' ],
-    [ months => '2011-02-28T17:11:37Z' ],
-    [ months => '2010-03-28T17:11:37Z' ],
-    [ months => '2011-01-28T17:11:37Z' ],
-    [ years  => '2010-03-27T17:11:37Z' ],
-    [ years  => '2009-03-27T17:11:37Z' ],
+    [ hours  => '20110327-171137' ],
+    [ hours  => '20110327-161137' ],
+    [ hours  => '20110227-181137' ],
+    [ hours  => '20110227-221137' ],
+    [ hours  => '20100327-181137' ],
+    [ days   => '20110326-171137' ],
+    [ days   => '20110301-171137' ],
+    [ days   => '20110228-171137' ],
+    [ days   => '20100326-171137' ],
+    [ weeks  => '20100403-171137' ],
+    [ weeks  => '20110320-171137' ],
+    [ weeks  => '20110326-171137' ],
+    [ months => '20110227-171137' ],
+    [ months => '20110228-171137' ],
+    [ months => '20100328-171137' ],
+    [ months => '20110128-171137' ],
+    [ years  => '20100327-171137' ],
+    [ years  => '20090327-171137' ],
 ) {
-    ok $rd->_need_link($spec->[0], $date, ["root/hour/$spec->[1].dump"]),
+    ok $rd->_need_link($spec->[0], $date, ["root/hour/$spec->[1].dmp"]),
         "Should need $spec->[0] link since $spec->[1]";
 }
 
 # Test don't need measured from previous.
 for my $spec (
-    [ hours  => '2011-03-27T18:11:37Z' ],
-    [ hours  => '2011-03-27T22:11:37Z' ],
-    [ hours  => '2011-05-16T22:11:37Z' ],
-    [ days   => '2011-03-27T17:11:37Z' ],
-    [ days   => '2011-03-29T17:11:37Z' ],
-    [ days   => '2011-04-26T17:11:37Z' ],
-    [ days   => '2012-03-26T17:11:37Z' ],
-    [ weeks  => '2011-03-27T17:11:37Z' ],
-    [ weeks  => '2011-03-29T17:11:37Z' ],
-    [ weeks  => '2011-04-03T17:11:37Z' ],
-    [ months => '2011-03-27T17:11:37Z' ],
-    [ months => '2011-03-01T17:11:37Z' ],
-    [ months => '2011-04-27T17:11:37Z' ],
-    [ months => '2012-03-27T17:11:37Z' ],
-    [ years  => '2011-03-27T17:11:37Z' ],
-    [ years  => '2011-02-27T17:11:37Z' ],
-    [ years  => '2012-03-27T17:11:37Z' ],
+    [ hours  => '20110327-181137' ],
+    [ hours  => '20110327-221137' ],
+    [ hours  => '20110516-221137' ],
+    [ days   => '20110327-171137' ],
+    [ days   => '20110329-171137' ],
+    [ days   => '20110426-171137' ],
+    [ days   => '20120326-171137' ],
+    [ weeks  => '20110327-171137' ],
+    [ weeks  => '20110329-171137' ],
+    [ weeks  => '20110403-171137' ],
+    [ months => '20110327-171137' ],
+    [ months => '20110301-171137' ],
+    [ months => '20110427-171137' ],
+    [ months => '20120327-171137' ],
+    [ years  => '20110327-171137' ],
+    [ years  => '20110227-171137' ],
+    [ years  => '20120327-171137' ],
 ) {
-    ok !$rd->_need_link($spec->[0], $date, ["root/hour/$spec->[1].dump"]),
+    ok !$rd->_need_link($spec->[0], $date, ["root/hour/$spec->[1].dmp"]),
         "Should not need $spec->[0] link since $spec->[1]";
 }
 

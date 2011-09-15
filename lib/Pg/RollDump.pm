@@ -21,6 +21,7 @@ use Object::Tiny qw(
 );
 
 our $VERSION = '0.10';
+my @intervals = qw(hours days weeks months years);
 
 sub go {
     my $class = shift;
@@ -38,11 +39,10 @@ sub run {
     die "$dir is not a directory\n" unless -d $dir;
 
     # Determine finest-grained interval.
-    my $finest = first { defined $self->{"keep_$_"} }
-        qw(hours days weeks months years);
+    my $finest = first { defined $self->{"keep_$_"} } @intervals;
 
     die "Missing required interval parameter. Specify one or more of:\n    "
-        . join "\n    ", map { "keep_$_" } qw(hours days weeks months years)
+        . join "\n    ", map { "keep_$_" } @intervals
         unless $finest;
 
     # Where we gonna put this?
@@ -63,7 +63,7 @@ sub _rolldump {
     my $date = _parse_date($self->dumpfile);
 
     for my $interval (
-        grep { defined $self->{"keep_$_"} } qw(hours days weeks months years)
+        grep { defined $self->{"keep_$_"} } @intervals
     ) {
         make_path +File::Spec->catdir($self->directory, $interval);
         my $keep = $self->{"keep_$interval"};
@@ -216,8 +216,8 @@ sub _getopts {
 
     $self->_pod2usage(
         '-message' => "Missing required interval option. Specify one or more of:\n    "
-            . join "\n    ", map { "--keep-$_" } qw(hours days weeks months years)
-    ) unless grep { $opts{"keep_$_"} } qw(hours days weeks months years);
+            . join "\n    ", map { "--keep-$_" } @intervals
+    ) unless grep { $opts{"keep_$_"} } @intervals;
 
     if (@ARGV) {
         # Strip out the -f and --file options.

@@ -84,8 +84,8 @@ $class->new(
     meta_merge         => {
         resources => {
             homepage   => 'http://search.cpan.org/dist/Pg-RollDump/',
-            bugtracker => 'http://github.com/theory/pg-rolldump/issues/',
-            repository => 'http://github.com/theory/pg-rolldump/tree/',
+            bugtracker => 'http://github.com/pgexperts/pg-rolldump/issues/',
+            repository => 'http://github.com/pgexperts/pg-rolldump/tree/',
         }
     },
 )->create_build_script;

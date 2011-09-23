@@ -260,7 +260,26 @@ Pg::RollDump - Time-based rolling PostgreSQL cluster backups
 
   pg_rolldump --dir /path/to/backup/dir [OPTIONS] -- [pg_dump options]
 
+=head1 Description
+
+This program manages rotating backups from C<pg_dump>. Simply tell it a root
+directory in which to store the backups, and the number of hourly, daily
+weekly, and yearly backups you'd like to keep. Then put it into a cron job to
+run at the highest resolution increment. So if you want hourly backups, run it
+hourly. If you want daily backups but no hourly backups, run it daily. Backups
+will be stored in subdirectories of the backup directory named for the
+increments.
+
+C<pg_rolldump> uses C<pg_dump> to do the actual dumping. You can specify any
+options to C<pg_dump> on the C<pg_rolldump> command line simply by separating
+them from the C<pg_rolldump> options with a lone double-dash (C<-->). The only
+C<pg_dump> option that's disallowed is C<--file>, because C<pg_rolldump>
+itself determines the location of the dump file. If C<--file> is specified,
+C<pg_rolldump> will remove it an issue a warning.
+
 =head1 Examples
+
+So let's look at some examples.
 
   pg_rolldump --dir /var/backup/db1 \
     --keep-days    8 \
@@ -268,22 +287,96 @@ Pg::RollDump - Time-based rolling PostgreSQL cluster backups
     --keep-months 11 \
     -- -U postgres -h db1 -Fc
 
+This invocation should be run daily. It calls C<pg_dump> with the options C<-h
+db1 -Fc> and will keep up to 8 daily, 3 weekly, and 11 monthly backups. Daily
+backups will live in F</var/backup/db1/days> and each time it's run, a new
+backup will be stored in that directory. Weekly and monthly backups will be
+added as hard links to the daily backup if a week or month has gone by. So the
+directory structure under F</var/backup/db1> after a few months of daily runs
+should look something like this:
+
+  days/localhost-20110915-043326.dmp
+  days/localhost-20110916-043334.dmp
+  days/localhost-20110917-043343.dmp
+  days/localhost-20110918-043534.dmp
+  days/localhost-20110919-043456.dmp
+  days/localhost-20110920-043545.dmp
+  days/localhost-20110921-043634.dmp
+  days/localhost-20110922-043643.dmp
+  weeks/localhost-20110908-043223.dmp
+  weeks/localhost-20110915-043326.dmp
+  weeks/localhost-20110922-043643.dmp
+  months/
+
+Note that duplicate file names, such as F<days/localhost20110915-043326.dmp>
+and F<weeks/localhost20110915-043326.dmp>, are actually the same file.
+C<pg_rolldump> achieves this via hard links, thereby reducing disk usage.
+
+Here's another one:
+
   pg_rolldump --dir /var/backup/db2 \
     --keep-days    8 \
     --keep-weeks   3 \
+    --prefix       mydump \
     -- -U postgres -h db2 -Fc
+
+This invocation should also be run daily. It will call C<pg_dump> with the
+options C<-h db2 -Fc> and keep up to 8 daily and three weekly backups.
+Normally backup file names begin with the host name being backed up (which
+allows one to store backups from multiple hosts in one directory), but here
+the C<--prefix> option has been used to start file names with C<mydump>
+instead. So after a couple of weeks running this script, the backup files in
+C</var/backup/db2> will look something like this:
+
+  days/mydump-20110915-043326.dmp
+  days/mydump-20110916-043334.dmp
+  days/mydump-20110917-043343.dmp
+  days/mydump-20110918-043534.dmp
+  days/mydump-20110919-043456.dmp
+  days/mydump-20110920-043545.dmp
+  days/mydump-20110921-043634.dmp
+  days/mydump-20110922-043643.dmp
+  weeks/mydump-20110915-043326.dmp
+  weeks/mydump-20110922-043643.dmp
+
+We can do without hard links, if necessary, like so:
 
   pg_rolldump --dir /var/backup/dbdev1 \
     --keep-weeks   3 \
+    --keep-months   1 \
+    --no-hard-links \
     -- -U postgres -h dbdev1 -Fc
+
+This invocation should be run weekly. After a month or so, it should have
+backup files something like this:
+
+  weeks/localhost-20110908-043223.dmp
+  weeks/localhost-20110915-043326.dmp
+  weeks/localhost-20110922-043643.dmp
+  months/localhost-20110922-043643.dmp
+
+Because we've used C<--no-hard-links>, F<weeks/localhost-20110922-043643.dmp>
+and F<months/localhost-20110922-043643.dmp> are not hard-linked, but
+completely separate files. This obviously uses more disk space and will make
+the backup slower whenever a new monthly copy needs to be made, but may be
+necessary on some file systems.
+
+We can also back up other hosts, like so:
 
   pg_rolldump --dir /var/backup/dbdev2 \
     --keep-weeks   3 \
     -- -U postgres -h dbdev2 -Fc
 
-=head1 Description
+This invocation should be run weekly. After three weeks, the files will
+look something like this:
 
-This program manages rotating backups from C<pg_dump>.
+  weeks/dbdev2-20110908-043223.dmp
+  weeks/dbdev2-20110915-043326.dmp
+  weeks/dbdev2-20110922-043643.dmp
+
+Note that C<pg_rolldump> is smart enough to grab the host name from the
+C<pg_dump parameters>, C<-h dbdev2 -Fc>, and use it as the prefix for the
+dump file names.
 
 =head1 Options
 
